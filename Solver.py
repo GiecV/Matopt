@@ -1,7 +1,4 @@
 import gurobipy as gb
-import numpy as np
-import random as r
-import matplotlib as plt
 
 class Solver:
 
