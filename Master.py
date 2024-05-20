@@ -1,19 +1,19 @@
 import gurobipy as gb
-from Master import Master
 
 class Master:
     
-    def __init__(self, execution_times, setup_times, M, N, N0, C_max_h, theta):
+    def __init__(self, execution_times, setup_times, M, N, N0, C_max_h, thetas, N_h):
         self.execution_times = execution_times
         self.setup_times = setup_times
         self.M = M
         self.N = N
         self.N0 = N0
         self.C_max_h = C_max_h
-        self.theta = theta
+        self.thetas = thetas
+        self.N_h = N_h
 
     def get_theta(self):
-        return self.theta
+        return self.thetas
 
     def solve(self):
         master = gb.Model()
@@ -23,8 +23,7 @@ class Master:
             [(i,j,k) 
              for i in self.M
              for j in self.N0
-             for k in self.N0
-             if j != k], vtype = gb.GRB.CONTINUOUS
+             for k in self.N0], vtype = gb.GRB.CONTINUOUS
         )
 
         Y = master.addVars( # Add assignment variables
@@ -75,10 +74,13 @@ class Master:
             )
         
         #12. CUTS
-        for i in self.M:
-            self.C_max_h[i] - gb.quicksum(
-                (1 - Y[i,j]) * self.thetas[i,j] for j in self.N[i]
-            )
+        for h in self.thetas:
+            for i in self.M:
+                if not self.N_h[h][i] == []:
+                    master.addConstr(
+                        self.C_max_h[h][i] - 
+                        gb.quicksum((1 - Y[i,j]) * self.thetas[h][i,j] for j in self.N_h[h][i]) <= C_max
+                    )
 
         #13. Integrality relaxation
 
@@ -115,43 +117,51 @@ class Master:
             maximum_makespan = C_max.X
                     
 
-            return decision_variables,completion_times,maximum_makespan,assignments
+            return decision_variables,completion_times,maximum_makespan,assignments, True
         else: return None
 
-    def compute_theta(self, assignments, setup_times):
+    def compute_thetas(self, assignments, setup_times):
 
         thetas = {}
         for i in self.M:
             for j in self.N: #! FORSE N0
                 max_setup_time = 0
                 for k in self.N:
-                    if assignments[i,j,k] == 1:
+                    if assignments[i,j] == 1: #!forse i,k
                         if setup_times[i,j,k] > max_setup_time:
                                 max_setup_time = setup_times[i,j,k]
                 thetas[i,j] = self.execution_times[i,j] + max_setup_time
-
         return thetas
 
-    def compute_C_max(self, completion_times, assignments):
+    def compute_C_max(self, assignments, completion_times):
 
         machines_and_times = {}
         C_max_h = {}
 
         for i in self.M:
+            machines_and_times[i] = []
             for k in self.N:
                 if assignments[i,k] == 1:
-                    if machines_and_times[i] is None:
-                        machines_and_times[i] = []
                     machines_and_times[i].append(k)
 
-        for key in machines_and_times:
+        for key in self.M:
             maximum = 0
             for item in machines_and_times[key]:
-                if completion_times[item] > maximum:
-                    maximum = completion_times[item]
+                if completion_times[key, item] > maximum:
+                    maximum = completion_times[key, item]
             
             C_max_h[key] = maximum
 
         return C_max_h
+
+    def compute_N_h(self, assignments):
+
+        jobs_at_each_machine = {}
+        for i in self.M:
+            jobs_at_each_machine[i] = []
+            for k in self.N:
+                if assignments[i,k] == 1:
+                    jobs_at_each_machine[i].append(k)
+        return jobs_at_each_machine
 
     

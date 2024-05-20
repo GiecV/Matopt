@@ -1,4 +1,3 @@
-import gurobipy as gb
 from Master import Master
 from Sequence import Sequence
 import time
@@ -18,6 +17,12 @@ class MPA:
         self.N = range(1,max_key[1]+1)
         self.N0 = range(max_key[1]+1) # N0 has to start from 0
 
+        self.thetas = {}
+        self.C_max_h = {}
+        self.N_h = {}
+
+        self.best_decision_variables = {}
+
         # self.C_max_prev = {}
         # for i in self.M:
         #     self.C_max_prev[i] = 9999
@@ -30,30 +35,34 @@ class MPA:
         iteration = 0
         t = t_max
         start_time = time.time()
-        master = Master(self.execution_times, self.setup_times, self.M, self.N, self.N0)
 
         while t > 0:
             iteration += 1
-            decision_variables,completion_times,maximum_makespan_master,assignments, master_solution_is_optimal = master.solve()
+            master = Master(execution_times=self.execution_times, setup_times=self.setup_times, M=self.M, N=self.N, N0=self.N0, 
+                            C_max_h=self.C_max_h, thetas=self.thetas, N_h=self.N_h)
+            self.decision_variables,completion_times,maximum_makespan_master,assignments, master_solution_is_optimal = master.solve()
+            print(maximum_makespan_master)
             if maximum_makespan_master < best_makespan:
-                sequence = Sequence()
-                maximum_makespan_sequence = sequence.solve(assignments)
+                sequence = Sequence(assignments, self.M, self.N, self.N0, self.setup_times, self.execution_times)
+                maximum_makespan_sequence, self.decision_variables, _ = sequence.solve()
 
-                if maximum_makespan_sequence < best_makespan:
+                if maximum_makespan_sequence is not None and maximum_makespan_sequence < best_makespan:
+                    self.best_decision_variables = self.decision_variables
                     best_makespan = maximum_makespan_sequence
 
                 if master_solution_is_optimal:
-                    # add cuts
-                    a = 1
+                    self.C_max_h[iteration] = master.compute_C_max(assignments, self.execution_times)
+                    self.thetas[iteration] = master.compute_thetas(assignments, self.setup_times)
+                    self.N_h[iteration] = master.compute_N_h(assignments)
             else:
                 if master_solution_is_optimal:
-                    return decision_variables,completion_times,best_makespan,assignments
+                    return self.best_decision_variables, best_makespan
                 
             end_time = time.time()
             elapsed_time = end_time - start_time
             t -= elapsed_time
 
-        return decision_variables,completion_times,best_makespan,assignments
+        return self.best_decision_variables, best_makespan
 
 
 
