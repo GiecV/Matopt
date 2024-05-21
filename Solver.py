@@ -122,12 +122,33 @@ class Solver:
 
         # Save the results if the problem is feasible, otherwise return None
         if model.Status == gb.GRB.OPTIMAL:
-            decision_variables = [[[X[i, j, k].X for k in self.N0] for j in self.N0] for i in self.M]
-            completion_times = [C[j].X for j in self.N0]
+            # decision_variables = [[[X[i, j, k].X for k in self.N0] for j in self.N0] for i in self.M]
+            # completion_times = [C[j].X for j in self.N0]
+            # maximum_makespan = C_max.X
+            # assignments = [[Y[i,k].X for k in self.N0] for i in self.M]
+
+            # return decision_variables,completion_times,maximum_makespan,assignments
+        
+            decision_variables = {}
+            completion_times = {}
+            maximum_makespan = {}
+            assignments = {}
+            
+            for i in self.M:
+                for j in self.N0:
+                    for k in self.N0:
+                        decision_variables[i,j,k] = X[i,j,k].X
+            for j in self.N0:
+                completion_times[j] = C[j].X
+            for i in self.M:
+                for k in self.N0:
+                    assignments[i,k] = Y[i,k].X
+            
             maximum_makespan = C_max.X
-            assignments = [[Y[i,k].X for k in self.N0] for i in self.M]
+            print('Maximum makespan: ', maximum_makespan)        
 
             return decision_variables,completion_times,maximum_makespan,assignments
+
         else: return None
 
 

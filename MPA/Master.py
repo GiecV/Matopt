@@ -1,4 +1,5 @@
 import gurobipy as gb
+from gurobipy import GRB
 
 class Master:
     
@@ -23,8 +24,17 @@ class Master:
             [(i,j,k) 
              for i in self.M
              for j in self.N0
-             for k in self.N0], vtype = gb.GRB.CONTINUOUS
+             for k in self.N0
+            ], vtype = gb.GRB.CONTINUOUS, lb = 0, ub = 1,
         )
+
+        # for i in self.M:
+        #     for j in self.N0:
+        #         for k in self.N0:
+        #             if j == k:
+        #                 X[i,j,k].VType = GRB.BINARY
+        #             else:
+        #                 X[i,j,k].VType = GRB.CONTINUOUS
 
         Y = master.addVars( # Add assignment variables
             [(i,k)
@@ -37,6 +47,9 @@ class Master:
         )
 
         C_max = master.addVar(vtype=gb.GRB.CONTINUOUS) # Add makespan variable
+
+        #10. Objective function
+        master.setObjective(C_max, gb.GRB.MINIMIZE)
 
         #2. Each job assigned exactly to one machine
         for k in self.N:
@@ -76,7 +89,6 @@ class Master:
         #12. CUTS
         for h in self.thetas:
             for i in self.M:
-                if not self.N_h[h][i] == []:
                     master.addConstr(
                         self.C_max_h[h][i] - 
                         gb.quicksum((1 - Y[i,j]) * self.thetas[h][i,j] for j in self.N_h[h][i]) <= C_max
@@ -84,15 +96,15 @@ class Master:
 
         #13. Integrality relaxation
 
-        for i in self.M:
-            for j in self.N0:
-                for k in self.N0:
-                    master.addConstr(
-                        X[i,j,k] >= 0
-                    )
-                    master.addConstr(
-                        X[i,j,k] <= 1
-                    )
+        # for i in self.M:
+        #     for j in self.N0:
+        #         for k in self.N0:
+        #             master.addConstr(
+        #                 X[i,j,k] >= 0
+        #             )
+        #             master.addConstr(
+        #                 X[i,j,k] <= 1
+        #             )
 
         # Solve the problem
         master.optimize()
@@ -114,8 +126,8 @@ class Master:
             for i in self.M:
                 for k in self.N0:
                     assignments[i,k] = Y[i,k].X
-            maximum_makespan = C_max.X
-                    
+            
+            maximum_makespan = C_max.X      
 
             return decision_variables,completion_times,maximum_makespan,assignments, True
         else: return None
@@ -124,7 +136,7 @@ class Master:
 
         thetas = {}
         for i in self.M:
-            for j in self.N: #! FORSE N0
+            for j in self.N:
                 max_setup_time = 0
                 for k in self.N:
                     if assignments[i,j] == 1: #!forse i,k
@@ -133,24 +145,68 @@ class Master:
                 thetas[i,j] = self.execution_times[i,j] + max_setup_time
         return thetas
 
-    def compute_C_max(self, assignments, completion_times):
+    def compute_C_max(self, decision_variables, setup_times, execution_times): #! SBAGLIATO I COMPLETION TIMES SONO SEMPRE 0, DEVI CALCOLARTELI TU A MANO USANDO X E Y RICOSTRUENDO LA CATENA
 
-        machines_and_times = {}
         C_max_h = {}
+        jobs_for_machine = {}
+        sorted_job_queue_for_machine = {}
+        makespan_for_machine = {}
+        #* X[i,j,k] = nella macchina i, il job j viene dopo k
 
-        for i in self.M:
-            machines_and_times[i] = []
-            for k in self.N:
-                if assignments[i,k] == 1:
-                    machines_and_times[i].append(k)
+        for i in self.M: #find the set of jobs for each machine
+            jobs = []
+            for j in self.N0:
+                for k in self.N0:
+                    if decision_variables[i,j,k] == 1:
+                        jobs.append((j,k))
+            jobs_for_machine[i] = jobs
 
-        for key in self.M:
-            maximum = 0
-            for item in machines_and_times[key]:
-                if completion_times[key, item] > maximum:
-                    maximum = completion_times[key, item]
+        for key in jobs_for_machine: #find the right sequence of jobs for each machine
+            sorted_jobs = []
+            stop = False
+            for j in self.N0:
+                if (j,0) in jobs_for_machine[key]:
+                    sorted_jobs.append(j)
+            if sorted_jobs == []:
+                stop = True
+            while not stop:
+                stop = True
+                last_index = sorted_jobs[-1]
+                for j in self.N0:
+                    if (j,last_index) in jobs_for_machine[key] and j != 0:
+                        sorted_jobs.append(j)
+                        stop = False
+
+            sorted_job_queue_for_machine[key] = sorted_jobs
+                    
+        for key in sorted_job_queue_for_machine:
+            sum_execution_times = 0
+            sum_setup_times = 0
+            for job in sorted_job_queue_for_machine[key]:
+                sum_execution_times += execution_times[key, job]
+                for i in range(len(sorted_job_queue_for_machine[key])):
+                    if i != 0:
+                        sum_setup_times += setup_times[key, sorted_job_queue_for_machine[key][i], sorted_job_queue_for_machine[key][i-1]]
+
+            makespan_for_machine[key] = sum_execution_times + sum_setup_times
+
+        return makespan_for_machine
+
+        # machines_and_times = {}
+
+        # for i in self.M:
+        #     machines_and_times[i] = []
+        #     for k in self.N:
+        #         if assignments[i,k] == 1:
+        #             machines_and_times[i].append(k)
+
+        # for key in self.M:
+        #     maximum = 0
+        #     for item in machines_and_times[key]:
+        #         if completion_times[key, item] > maximum:
+        #             maximum = completion_times[key, item]
             
-            C_max_h[key] = maximum
+        #     C_max_h[key] = maximum
 
         return C_max_h
 
@@ -162,6 +218,7 @@ class Master:
             for k in self.N:
                 if assignments[i,k] == 1:
                     jobs_at_each_machine[i].append(k)
+
         return jobs_at_each_machine
 
     

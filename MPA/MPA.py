@@ -1,5 +1,5 @@
-from Master import Master
-from Sequence import Sequence
+from MPA.Master import Master
+from MPA.Sequence import Sequence
 import time
 
 class MPA:
@@ -41,9 +41,9 @@ class MPA:
             master = Master(execution_times=self.execution_times, setup_times=self.setup_times, M=self.M, N=self.N, N0=self.N0, 
                             C_max_h=self.C_max_h, thetas=self.thetas, N_h=self.N_h)
             self.decision_variables,completion_times,maximum_makespan_master,assignments, master_solution_is_optimal = master.solve()
-            print(maximum_makespan_master)
             if maximum_makespan_master < best_makespan:
-                sequence = Sequence(assignments, self.M, self.N, self.N0, self.setup_times, self.execution_times)
+                sequence = Sequence(fixed_assignments=assignments, M=self.M, N=self.N, N0=self.N0, 
+                                    setup_times=self.setup_times, execution_times=self.execution_times)
                 maximum_makespan_sequence, self.decision_variables, _ = sequence.solve()
 
                 if maximum_makespan_sequence is not None and maximum_makespan_sequence < best_makespan:
@@ -51,7 +51,7 @@ class MPA:
                     best_makespan = maximum_makespan_sequence
 
                 if master_solution_is_optimal:
-                    self.C_max_h[iteration] = master.compute_C_max(assignments, self.execution_times)
+                    self.C_max_h[iteration] = master.compute_C_max(decision_variables= self.decision_variables, execution_times=self.execution_times, setup_times=self.setup_times)
                     self.thetas[iteration] = master.compute_thetas(assignments, self.setup_times)
                     self.N_h[iteration] = master.compute_N_h(assignments)
             else:
