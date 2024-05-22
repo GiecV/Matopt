@@ -1,11 +1,13 @@
 import time
 import random as r
 from Solver import Solver
+import gurobipy as gb
+import numpy as np
 
 class FixOpt:
 
-    def __init__(self, initial_solution, setup_times, execution_times, t_max=10_000, subproblem_size=5,
-                 subproblem_runtime_limit = 100, subproblem_size_adjust_rate = 0):
+    def __init__(self, initial_solution, setup_times, execution_times, t_max=10_000, subproblem_size=106,
+                 subproblem_runtime_limit = 16, subproblem_size_adjust_rate = 0.2):
         self.solution = initial_solution
         self.setup_times = setup_times
         self.execution_times = execution_times
@@ -31,9 +33,9 @@ class FixOpt:
         self.solution_makespan = max_makespan
 
     def solve(self):
-        time = 0
+        elapsed_time = 0
         start_time = time.time()
-        while time < self.t_max:
+        while elapsed_time < self.t_max:
             
             M_prime = []
             M_prime.append(self.find_makespan_machine())
@@ -47,14 +49,24 @@ class FixOpt:
                 if (len(N_prime) + len(self.solution[other_machine])) <= self.n:
                     N_prime.append(job for job in self.solution[other_machine])
                 else: 
-                    jobs_needed = len(N_prime) - self.N
+                    jobs_needed = len(N_prime) - self.n
                     r.sample(self.solution[other_machine], jobs_needed) #! occhio che non metta 2 volte lo stesso
                     
-                execution_subdict, setup_subdict = self.get_subdictionaries(M=M_prime, N=N_prime)
-                s = Solver(execution_times=execution_subdict, setup_times=setup_subdict)
+            execution_subdict, setup_subdict = self.get_subdictionaries(M=M_prime, N=N_prime)
+            s = Solver(execution_times=execution_subdict, setup_times=setup_subdict)
+            #! LOAD SOLUTION INTO MIP ?????
+            decision_variables,completion_times,maximum_makespan,assignments = s.solve()
+            
+            self.solution = self.convert_to_solution_format(decision_variables)
+            
+            if s.status == gb.GRB.OPTIMAL:
+                self.n = np.ceil(self.n * (1 + self.alpha))
+            else:
+                self.n = np.floor(self.n * (1 - self.alpha))
             
             end_time = time.time()
-            time += end_time - start_time
+            elapsed_time += end_time - start_time
+            print(self.solution)
         
         return self.solution
     
@@ -62,7 +74,7 @@ class FixOpt:
         makespan_for_machine = {}
         
         for key in self.solution:
-            makespan_for_machine[key] = self.compute_makespan(self, key, self.solution[key])
+            makespan_for_machine[key] = self.compute_makespan(key, self.solution[key])
             
         return max(makespan_for_machine, key=makespan_for_machine.get)
     
@@ -93,12 +105,40 @@ class FixOpt:
             
         return max(probabilities, key=probabilities.get)
     
-    def get_subdictionaries(self, M, N):
+    def get_subdictionaries(self, M_prime, N_prime):
         
         execution = {}
         setup = {}
         
-        #create subdictionaries from M and N
+        for key in self.setup_times:
+            i,j,k = key
+            if i in M_prime and j in N_prime and k in N_prime:
+                setup[i,j,k] = self.setup_times[i,j,k]
+        
+        for key in self.execution_times:
+            i,j = key
+            if i in M_prime and j in N_prime:
+                execution[i,j] = self.execution_times[i,j]
         
         return execution, setup
     
+    def convert_to_solution_format(self, decision_dictionary):
+        
+        solution = {}
+        
+        for key in decision_dictionary:
+            i,j,k = key
+            if i not in solution:
+                solution[i] = []
+                
+            if decision_dictionary[key] == 1:
+                if j != 0:
+                    if k == 0:
+                        solution[i].append(j)
+                    else:
+                        index = solution[i].index(k)
+                        solution[i].insert(j,index + 1)
+                        
+        return solution
+            
+                

@@ -119,6 +119,8 @@ class Solver:
 
         # Solve the problem
         model.optimize()
+        
+        self.status = model.Status
 
         # Save the results if the problem is feasible, otherwise return None
         if model.Status == gb.GRB.OPTIMAL:
