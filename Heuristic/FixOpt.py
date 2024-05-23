@@ -40,20 +40,22 @@ class FixOpt:
             M_prime = []
             M_prime.append(self.find_makespan_machine())
             N_prime = []
-            N_prime.append(job for job in self.solution[M_prime[0]])
-            while len(N_prime) <= self.n:
+            for job in self.solution[M_prime[0]]:
+                N_prime.append(job)
+            while len(N_prime) < self.n:
                 
                 other_machine = self.get_machine_from_roulette_wheel(M_prime)
                 M_prime.append(other_machine)
                 
                 if (len(N_prime) + len(self.solution[other_machine])) <= self.n:
-                    N_prime.append(job for job in self.solution[other_machine])
+                    for job in self.solution[other_machine]:
+                        N_prime.append(job)
                 else: 
                     jobs_needed = len(N_prime) - self.n
                     r.sample(self.solution[other_machine], jobs_needed) #! occhio che non metta 2 volte lo stesso
-                    
-            execution_subdict, setup_subdict = self.get_subdictionaries(M=M_prime, N=N_prime)
-            s = Solver(execution_times=execution_subdict, setup_times=setup_subdict)
+            
+            execution_subdict, setup_subdict = self.get_subdictionaries(M_prime=M_prime, N_prime=N_prime)
+            s = Solver(execution_times=execution_subdict, setup_times=setup_subdict, N=N_prime, M=M_prime)
             #! LOAD SOLUTION INTO MIP ?????
             decision_variables,completion_times,maximum_makespan,assignments = s.solve()
             
@@ -66,7 +68,6 @@ class FixOpt:
             
             end_time = time.time()
             elapsed_time += end_time - start_time
-            print(self.solution)
         
         return self.solution
     
@@ -88,7 +89,7 @@ class FixOpt:
             for i in range(len(job_queue)):
                 if i != 0:
                     sum_setup_times += self.setup_times[machine, job_queue[i], job_queue[i-1]]
-                    
+                              
         return (sum_execution_times + sum_setup_times)
     
     def get_machine_from_roulette_wheel(self, M_prime):
@@ -119,26 +120,39 @@ class FixOpt:
             i,j = key
             if i in M_prime and j in N_prime:
                 execution[i,j] = self.execution_times[i,j]
-        
+                
         return execution, setup
     
     def convert_to_solution_format(self, decision_dictionary):
         
-        solution = {}
+        keys = {}
+        solution = {}  
         
         for key in decision_dictionary:
             i,j,k = key
-            if i not in solution:
-                solution[i] = []
-                
             if decision_dictionary[key] == 1:
-                if j != 0:
-                    if k == 0:
-                        solution[i].append(j)
-                    else:
-                        index = solution[i].index(k)
-                        solution[i].insert(j,index + 1)
-                        
+                if i not in keys:
+                    keys[i] = []
+                keys[i].append((j,k))
+              
+        for i in keys:
+            solution[i] = []
+            job_to_find = 0
+            first_iteration = True
+            while job_to_find != 0 or first_iteration:
+                first_iteration = False
+                for pair in keys[i]:
+                    j,k = pair
+                    if k == job_to_find:
+                        if j != 0:
+                            solution[i].append(j)
+                        job_to_find = j
+                        break 
+                    
+        for i in self.M:
+            if i not in self.solution:
+                solution[i] = []
+                            
         return solution
             
                 

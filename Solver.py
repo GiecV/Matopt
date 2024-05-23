@@ -2,7 +2,7 @@ import gurobipy as gb
 
 class Solver:
 
-    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000):
+    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000, M = [], N = []):
         
         self.execution_times = execution_times 
         self.setup_times = setup_times
@@ -12,10 +12,18 @@ class Solver:
         for key in execution_times:
             keys.append(key)
         max_key = max(keys, key=lambda item: item)
-
-        self.M = range(1,max_key[0]+1)
-        self.N = range(1,max_key[1]+1)
-        self.N0 = range(max_key[1]+1) # N0 has to start from 0
+        
+        if M == []:
+            self.M = range(1,max_key[0]+1)
+        else:
+            self.M = M
+        if N == []:
+            self.N = range(1,max_key[1]+1)
+            self.N0 = range(max_key[1]+1) # N0 has to start from 0
+        else:
+            self.N = N
+            self.N0 = N.copy()
+            self.N0.insert(0,0)
 
         self.makespan_upper_bound = makespan_upper_bound
 
