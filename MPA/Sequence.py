@@ -13,9 +13,10 @@ class Sequence:
         self.execution_times = execution_times
         self.makespan_upper_bound = makespan_upper_bound
 
-    def solve(self): #fix solve method it does not work
+    def solve(self, options = {}): #fix solve method it does not work
 
-        sequence = gb.Model()
+        env = gb.Env(params=options)
+        sequence = gb.Model(env=env)
         sequence.Params.OutputFlag = 0 # Avoid verbose output
 
         X = sequence.addVars( # Add sequence variables

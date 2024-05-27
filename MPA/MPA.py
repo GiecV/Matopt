@@ -30,7 +30,7 @@ class MPA:
         # self.N_machine_prev = {}
 
 
-    def solve(self, t_max = 600):
+    def solve(self, t_max = 600, options={}):
         best_makespan = 99999
         iteration = 0
         t = t_max
@@ -40,11 +40,11 @@ class MPA:
             iteration += 1
             master = Master(execution_times=self.execution_times, setup_times=self.setup_times, M=self.M, N=self.N, N0=self.N0, 
                             C_max_h=self.C_max_h, thetas=self.thetas, N_h=self.N_h)
-            self.decision_variables,completion_times,maximum_makespan_master,assignments, master_solution_is_optimal = master.solve()
+            self.decision_variables,completion_times,maximum_makespan_master,assignments, master_solution_is_optimal = master.solve(options=options)
             if maximum_makespan_master < best_makespan:
                 sequence = Sequence(fixed_assignments=assignments, M=self.M, N=self.N, N0=self.N0, 
                                     setup_times=self.setup_times, execution_times=self.execution_times)
-                maximum_makespan_sequence, self.decision_variables, _ = sequence.solve()
+                maximum_makespan_sequence, self.decision_variables, _ = sequence.solve(options=options)
 
                 if maximum_makespan_sequence is not None and maximum_makespan_sequence < best_makespan:
                     self.best_decision_variables = self.decision_variables

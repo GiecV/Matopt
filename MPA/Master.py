@@ -16,8 +16,10 @@ class Master:
     def get_theta(self):
         return self.thetas
 
-    def solve(self):
-        master = gb.Model()
+    def solve(self, options = {}):
+        
+        env = gb.Env(params=options)
+        master = gb.Model(env=env)
         master.Params.OutputFlag = 0 # Avoid verbose output
 
         X = master.addVars( # Add sequence variables

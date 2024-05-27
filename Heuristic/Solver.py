@@ -1,23 +1,32 @@
 import gurobipy as gb
 
-class Solver:
+class Solver: # The difference with the standard Solver class is the possibility to specify arbitrary M and N set and a list of fixed jobs
 
-    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000, max_time = 600):
+    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000, M = [], N = [],
+                 jobs_fixed_to_machine = {}, time_limit = 1):
         
         self.execution_times = execution_times 
         self.setup_times = setup_times
+        self.jobs_fixed_to_machine = jobs_fixed_to_machine
+        self.time_limit = time_limit
         
-        self.max_time = max_time
-
         # Get all keys in a list for the computation of the required sets
         keys = []
         for key in execution_times:
             keys.append(key)
         max_key = max(keys, key=lambda item: item)
         
-        self.M = range(1,max_key[0]+1)
-        self.N = range(1,max_key[1]+1)
-        self.N0 = range(max_key[1]+1) # N0 has to start from 0
+        if M == []:
+            self.M = range(1,max_key[0]+1)
+        else:
+            self.M = M
+        if N == []:
+            self.N = range(1,max_key[1]+1)
+            self.N0 = range(max_key[1]+1) # N0 has to start from 0
+        else:
+            self.N = N
+            self.N0 = N.copy()
+            self.N0.insert(0,0)
 
         self.makespan_upper_bound = makespan_upper_bound
 
@@ -30,7 +39,7 @@ class Solver:
         env = gb.Env(params=options)
         model = gb.Model(env=env)
         model.Params.OutputFlag = 0 # Avoid verbose output
-        model.Params.TimeLimit = self.max_time
+        model.Params.TimeLimit = self.time_limit
 
         X = model.addVars( # Add sequence variables
             [(i,j,k) 
@@ -110,6 +119,12 @@ class Solver:
                 <= C_max
             )
 
+        # Fix some jobs to machines if necessary
+        for key,value in self.jobs_fixed_to_machine.items():
+            model.addConstr(
+                Y[value,key] == 1
+            )
+
         # Set Cj domain
         for j in self.N0:
             model.addConstr(
@@ -125,37 +140,26 @@ class Solver:
         model.optimize()
         
         self.status = model.Status
-
-        # Save the results if the problem is feasible, otherwise return None
-        if model.Status == gb.GRB.OPTIMAL:
-            # decision_variables = [[[X[i, j, k].X for k in self.N0] for j in self.N0] for i in self.M]
-            # completion_times = [C[j].X for j in self.N0]
-            # maximum_makespan = C_max.X
-            # assignments = [[Y[i,k].X for k in self.N0] for i in self.M]
-
-            # return decision_variables,completion_times,maximum_makespan,assignments
         
-            decision_variables = {}
-            completion_times = {}
-            maximum_makespan = {}
-            assignments = {}
+        decision_variables = {}
+        completion_times = {}
+        maximum_makespan = {}
+        assignments = {}
             
-            for i in self.M:
-                for j in self.N0:
-                    for k in self.N0:
-                        decision_variables[i,j,k] = X[i,j,k].X
+        for i in self.M:
             for j in self.N0:
-                completion_times[j] = C[j].X
-            for i in self.M:
                 for k in self.N0:
-                    assignments[i,k] = Y[i,k].X
+                    decision_variables[i,j,k] = X[i,j,k].X
+        for j in self.N0:
+            completion_times[j] = C[j].X
+        for i in self.M:
+            for k in self.N0:
+                assignments[i,k] = Y[i,k].X
             
-            maximum_makespan = C_max.X
-            # print('Maximum makespan: ', maximum_makespan)        
+        maximum_makespan = C_max.X      
 
-            return decision_variables,completion_times,maximum_makespan,assignments
+        return decision_variables,completion_times,maximum_makespan,assignments
 
-        else: return None
 
 
         
