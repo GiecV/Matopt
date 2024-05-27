@@ -1,12 +1,15 @@
 from MPA.Master import Master
 from MPA.Sequence import Sequence
 import time
+import gurobipy as gb
+from gurobipy import GRB
 
 class MPA:
-    def __init__(self, execution_times:dict, setup_times:dict):
+    def __init__(self, execution_times:dict, setup_times:dict, t_max = 600):
 
         self.execution_times = execution_times 
         self.setup_times = setup_times
+        self.t_max = t_max
 
         keys = []
         for key in execution_times:
@@ -23,46 +26,92 @@ class MPA:
 
         self.best_decision_variables = {}
 
-        # self.C_max_prev = {}
-        # for i in self.M:
-        #     self.C_max_prev[i] = 9999
 
-        # self.N_machine_prev = {}
-
-
-    def solve(self, t_max = 600, options={}):
-        best_makespan = 99999
+    def solve(self, options={}):
+        
+        best_makespan = 10_000
         iteration = 0
-        t = t_max
+        t = self.t_max
         start_time = time.time()
+        master_solution = {}
+        master_makespan = best_makespan
+        master_status = None
+        sequence_solution = {}
+        sequence_makespan = best_makespan
+        sequence_status = None
+        best_solution = {}
+        C_max_h = {}
+        thetas = {}
+        N_h = {}
+        
+
+        master = Master(execution_times=self.execution_times, setup_times=self.setup_times,
+                        M=self.M, N=self.N, N0=self.N0, t_max = t)
 
         while t > 0:
             iteration += 1
-            master = Master(execution_times=self.execution_times, setup_times=self.setup_times, M=self.M, N=self.N, N0=self.N0, 
-                            C_max_h=self.C_max_h, thetas=self.thetas, N_h=self.N_h)
-            self.decision_variables,completion_times,maximum_makespan_master,assignments, master_solution_is_optimal = master.solve(options=options)
-            if maximum_makespan_master < best_makespan:
-                sequence = Sequence(fixed_assignments=assignments, M=self.M, N=self.N, N0=self.N0, 
-                                    setup_times=self.setup_times, execution_times=self.execution_times)
-                maximum_makespan_sequence, self.decision_variables, _ = sequence.solve(options=options)
-
-                if maximum_makespan_sequence is not None and maximum_makespan_sequence < best_makespan:
-                    self.best_decision_variables = self.decision_variables
-                    best_makespan = maximum_makespan_sequence
-
-                if master_solution_is_optimal:
-                    self.C_max_h[iteration] = master.compute_C_max(decision_variables= self.decision_variables, execution_times=self.execution_times, setup_times=self.setup_times)
-                    self.thetas[iteration] = master.compute_thetas(assignments, self.setup_times)
-                    self.N_h[iteration] = master.compute_N_h(assignments)
+            
+            if iteration == 1:
+                master_solution, master_assignments, master_makespan, master_status = master.solve(options=options, iteration=iteration,
+                                                                               C_max_h=C_max_h,
+                                                                               theta=thetas, N_h=N_h)
             else:
-                if master_solution_is_optimal:
-                    return self.best_decision_variables, best_makespan
+                master_solution, master_assignments, master_makespan, master_status = master.solve(options=options, C_max_h=C_max_h,
+                                                                               theta=thetas, N_h=N_h)
                 
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            t -= elapsed_time
-
-        return self.best_decision_variables, best_makespan
+            if master_makespan < best_makespan:
+                sequence = Sequence(fixed_assignments= master_assignments, M = self.M, N = self.N, N0  = self.N0, 
+                                    setup_times=self.setup_times, execution_times= self. execution_times, time_limit = t)
+                sequence_solution, sequence_makespan = sequence.solve(options=options)
+                
+                if sequence_makespan < best_makespan:
+                    best_makespan = sequence_makespan
+                    best_solution = sequence_solution
+                
+                if master_status == gb.GRB.OPTIMAL:
+                    C_max_h[iteration] = self.compute_C_max_h(master_solution)
+                    thetas[iteration] = self.compute_thetas(master_solution)
+                    N_h[iteration] = self.compute_N_h(master_solution)
+                    
+            else:
+                if master_status == gb.GRB.OPTIMAL:
+                    return best_solution, best_makespan
+                
+            t = self.t_max - (time.time() - start_time)
+            
+        return best_solution, best_makespan
+    
+    def compute_C_max_h(self, master_solution):
+        
+        C_max_h = {}
+        for i in self.M:
+            C_max_h[i] = sum((self.execution_times[i, j] + self.setup_times[i, j, k]) * master_solution[i, j, k] 
+                             for j in self.N for k in self.N)
+            
+        return C_max_h
+    
+    def compute_thetas(self, master_solution):
+        
+        thetas = {}
+        for i in self.M:
+            for j in self.N:
+                assigned_jobs = [k for k in self.N if master_solution[i, j, k] == 1]
+                max_setup_time = max(self.setup_times[i, k, j] for k in assigned_jobs) if assigned_jobs else 0
+                thetas[i, j] = self.execution_times[i, j] + max_setup_time
+                
+        return thetas
+    
+    def compute_N_h(self, master_solution):
+        
+        N_h = {}
+        
+        for i in self.M:
+            N_h[i] = sum(master_solution[i, j, k] for j in self.N for k in self.N)
+        
+        return N_h
+        
+    
+    
 
 
 

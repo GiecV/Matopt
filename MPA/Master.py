@@ -3,40 +3,38 @@ from gurobipy import GRB
 
 class Master:
     
-    def __init__(self, execution_times, setup_times, M, N, N0, C_max_h, thetas, N_h):
+    def __init__(self, execution_times, setup_times, M, N, N0, t_max = 60):
+        
         self.execution_times = execution_times
         self.setup_times = setup_times
         self.M = M
         self.N = N
         self.N0 = N0
-        self.C_max_h = C_max_h
-        self.thetas = thetas
-        self.N_h = N_h
+        self.t_max = t_max
 
-    def get_theta(self):
-        return self.thetas
-
-    def solve(self, options = {}):
+    def solve(self, C_max_h, theta, N_h, options = {}, iteration = 0):
         
         env = gb.Env(params=options)
         master = gb.Model(env=env)
         master.Params.OutputFlag = 0 # Avoid verbose output
+        
+        if iteration == 1:
+            master.Params.MIPGap = 0.02
+            master.Params.TimeLimit = 0.9 * self.t_max
 
-        X = master.addVars( # Add sequence variables
-            [(i,j,k) 
-             for i in self.M
-             for j in self.N0
-             for k in self.N0
-            ], vtype = gb.GRB.CONTINUOUS, lb = 0, ub = 1,
-        )
+        X_continuous = {(i,j,k): master.addVar(vtype=gb.GRB.CONTINUOUS, lb=0, ub=1)
+                        for i in self.M
+                        for j in self.N0
+                        for k in self.N0
+                        if j != k}
 
-        # for i in self.M:
-        #     for j in self.N0:
-        #         for k in self.N0:
-        #             if j == k:
-        #                 X[i,j,k].VType = GRB.BINARY
-        #             else:
-        #                 X[i,j,k].VType = GRB.CONTINUOUS
+        X_binary = {(i,j,k): master.addVar(vtype=gb.GRB.BINARY)
+                    for i in self.M
+                    for j in self.N0
+                    for k in self.N0
+                    if j == k}
+
+        X = {**X_continuous, **X_binary}
 
         Y = master.addVars( # Add assignment variables
             [(i,k)
@@ -88,139 +86,39 @@ class Master:
                 <= C_max
             )
         
-        #12. CUTS
-        for h in self.thetas:
+        #12. CUTS     
+        for h in C_max_h:
+            print('C_max_h ', C_max_h)
+            print('self.M ', self.M)
+            print('C_max_h ', C_max_h)
+            print('Y ', Y)
+            print('theta ', theta)
+            print('N_h ', N_h)
             for i in self.M:
-                    master.addConstr(
-                        self.C_max_h[h][i] - 
-                        gb.quicksum((1 - Y[i,j]) * self.thetas[h][i,j] for j in self.N_h[h][i]) <= C_max
-                    )
-
-        #13. Integrality relaxation
-
-        # for i in self.M:
-        #     for j in self.N0:
-        #         for k in self.N0:
-        #             master.addConstr(
-        #                 X[i,j,k] >= 0
-        #             )
-        #             master.addConstr(
-        #                 X[i,j,k] <= 1
-        #             )
+                master.addConstr(C_max >= C_max_h[h][i] - 
+                                 gb.quicksum( (1 - Y[i,j]) * 
+                                             theta[h][i,j] 
+                                             for j in N_h[h][i] ))
 
         # Solve the problem
         master.optimize()
 
-        # Save the results if the problem is feasible, otherwise return None
-        if master.Status == gb.GRB.OPTIMAL:
-
-            decision_variables = {}
-            completion_times = {}
-            maximum_makespan = {}
-            assignments = {}
+        decision_variables = {}
+        completion_times = {}
+        maximum_makespan = {}
+        assignments = {}
             
-            for i in self.M:
-                for j in self.N0:
-                    for k in self.N0:
-                        decision_variables[i,j,k] = X[i,j,k].X
-            for j in self.N0:
-                completion_times[j] = C[j].X
-            for i in self.M:
-                for k in self.N0:
-                    assignments[i,k] = Y[i,k].X
-            
-            maximum_makespan = C_max.X      
-
-            return decision_variables,completion_times,maximum_makespan,assignments, True
-        else: return None
-
-    def compute_thetas(self, assignments, setup_times):
-
-        thetas = {}
         for i in self.M:
-            for j in self.N:
-                max_setup_time = 0
-                for k in self.N:
-                    if assignments[i,j] == 1: #!forse i,k
-                        if setup_times[i,j,k] > max_setup_time:
-                                max_setup_time = setup_times[i,j,k]
-                thetas[i,j] = self.execution_times[i,j] + max_setup_time
-        return thetas
-
-    def compute_C_max(self, decision_variables, setup_times, execution_times): #! SBAGLIATO I COMPLETION TIMES SONO SEMPRE 0, DEVI CALCOLARTELI TU A MANO USANDO X E Y RICOSTRUENDO LA CATENA
-
-        C_max_h = {}
-        jobs_for_machine = {}
-        sorted_job_queue_for_machine = {}
-        makespan_for_machine = {}
-        #* X[i,j,k] = nella macchina i, il job j viene dopo k
-
-        for i in self.M: #find the set of jobs for each machine
-            jobs = []
             for j in self.N0:
                 for k in self.N0:
-                    if decision_variables[i,j,k] == 1:
-                        jobs.append((j,k))
-            jobs_for_machine[i] = jobs
-
-        for key in jobs_for_machine: #find the right sequence of jobs for each machine
-            sorted_jobs = []
-            stop = False
-            for j in self.N0:
-                if (j,0) in jobs_for_machine[key]:
-                    sorted_jobs.append(j)
-            if sorted_jobs == []:
-                stop = True
-            while not stop:
-                stop = True
-                last_index = sorted_jobs[-1]
-                for j in self.N0:
-                    if (j,last_index) in jobs_for_machine[key] and j != 0:
-                        sorted_jobs.append(j)
-                        stop = False
-
-            sorted_job_queue_for_machine[key] = sorted_jobs
-                    
-        for key in sorted_job_queue_for_machine:
-            sum_execution_times = 0
-            sum_setup_times = 0
-            for job in sorted_job_queue_for_machine[key]:
-                sum_execution_times += execution_times[key, job]
-                for i in range(len(sorted_job_queue_for_machine[key])):
-                    if i != 0:
-                        sum_setup_times += setup_times[key, sorted_job_queue_for_machine[key][i], sorted_job_queue_for_machine[key][i-1]]
-
-            makespan_for_machine[key] = sum_execution_times + sum_setup_times
-
-        return makespan_for_machine
-
-        # machines_and_times = {}
-
-        # for i in self.M:
-        #     machines_and_times[i] = []
-        #     for k in self.N:
-        #         if assignments[i,k] == 1:
-        #             machines_and_times[i].append(k)
-
-        # for key in self.M:
-        #     maximum = 0
-        #     for item in machines_and_times[key]:
-        #         if completion_times[key, item] > maximum:
-        #             maximum = completion_times[key, item]
-            
-        #     C_max_h[key] = maximum
-
-        return C_max_h
-
-    def compute_N_h(self, assignments):
-
-        jobs_at_each_machine = {}
+                    decision_variables[i,j,k] = X[i,j,k].X
+        for j in self.N0:
+            completion_times[j] = C[j].X
         for i in self.M:
-            jobs_at_each_machine[i] = []
-            for k in self.N:
-                if assignments[i,k] == 1:
-                    jobs_at_each_machine[i].append(k)
-
-        return jobs_at_each_machine
-
+            for k in self.N0:
+                assignments[i,k] = Y[i,k].X
+            
+        maximum_makespan = C_max.X    
+          
+        return decision_variables, assignments, maximum_makespan, master.Status
     
