@@ -34,9 +34,9 @@ class Sequence:
         )
 
         #16. Objective function
-        sequence.setObjective( #! RIVEDI QUEL K IN N K != J
+        sequence.setObjective(
             gb.quicksum( gb.quicksum( gb.quicksum( self.setup_times[i,j,k] * X[i,j,k] for k in self.N if k != j) for j in self.N0) for i in self.M) + 
-            gb.quicksum( gb.quicksum( gb.quicksum( self.execution_times[i,j] * self.fixed_assignments[i,k] for k in self.N if k != j) for j in self.N) for i in self.M), 
+            gb.quicksum( gb.quicksum( self.execution_times[i,j] * self.fixed_assignments[i,j] for j in self.N ) for i in self.M), 
             gb.GRB.MINIMIZE)
 
         #17. At most one job is scheduled as the first job on each machine
@@ -104,17 +104,17 @@ class Sequence:
 
     def compute_makespan(self, decision_variables, jobs_before):
         makespans = {}
-        
+    
         for i in self.M:
             makespan_i = 0
             for j in self.N:
-                for k in self.N:
+                for k in self.N0:
                     if decision_variables[i,j,k] == 1:
-                        makespan_i += self.setup_times[i,j,k] + self.execution_times[i,j]
-            for j in self.N:
-                makespan_i += jobs_before[j] * self.execution_times[i,j]
+                        makespan_i += self.execution_times[i,j]
+                        if k != 0:
+                            makespan_i += self.setup_times[i,j,k]
             makespans[i] = makespan_i
-    
+
         max_makespan = max(makespans.values())
     
         return max_makespan

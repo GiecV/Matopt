@@ -82,33 +82,62 @@ class MPA:
         return best_solution, best_makespan
     
     def compute_C_max_h(self, master_solution):
-        
         C_max_h = {}
         for i in self.M:
             C_max_h[i] = sum((self.execution_times[i, j] + self.setup_times[i, j, k]) * master_solution[i, j, k] 
-                             for j in self.N for k in self.N)
-            
+                         for j in self.N0 for k in self.N0 if j != 0 and k != 0)
         return C_max_h
-    
+
     def compute_thetas(self, master_solution):
-        
         thetas = {}
         for i in self.M:
-            for j in self.N:
-                assigned_jobs = [k for k in self.N if master_solution[i, j, k] == 1]
-                max_setup_time = max(self.setup_times[i, k, j] for k in assigned_jobs) if assigned_jobs else 0
-                thetas[i, j] = self.execution_times[i, j] + max_setup_time
-                
+            for j in self.N0:
+                if j != 0:
+                    assigned_jobs = [k for k in self.N0 if master_solution[i, j, k] == 1 and k != 0]
+                    max_setup_time = max(self.setup_times[i, k, j] for k in assigned_jobs) if assigned_jobs else 0
+                    thetas[i, j] = self.execution_times[i, j] + max_setup_time
         return thetas
-    
+
     def compute_N_h(self, master_solution):
-        
-        N_h = {}
-        
+        N_h = {i:[] for i in self.M}
         for i in self.M:
-            N_h[i] = sum(master_solution[i, j, k] for j in self.N for k in self.N)
-        
+            for j in self.N0:
+                for k in self.N0:
+                    if master_solution[i, j, k] == 1 and j != 0:
+                        N_h[i].append(j)
         return N_h
+    
+    # def compute_C_max_h(self, master_solution):
+        
+    #     C_max_h = {}
+    #     for i in self.M:
+    #         C_max_h[i] = sum((self.execution_times[i, j] + self.setup_times[i, j, k]) * master_solution[i, j, k] 
+    #                          for j in self.N for k in self.N)
+            
+    #     return C_max_h
+    
+    # def compute_thetas(self, master_solution):
+        
+    #     thetas = {}
+    #     for i in self.M:
+    #         for j in self.N:
+    #             assigned_jobs = [k for k in self.N0 if master_solution[i, j, k] == 1]
+    #             max_setup_time = max(self.setup_times[i, k, j] for k in assigned_jobs) if assigned_jobs else 0
+    #             thetas[i, j] = self.execution_times[i, j] + max_setup_time
+                
+    #     return thetas
+    
+    # def compute_N_h(self, master_solution):
+        
+    #     N_h = {i:[] for i in self.M}
+        
+    #     for i in self.M:
+    #         for j in self.N:
+    #             for k in self.N:
+    #                 if master_solution[i, j, k] == 1:
+    #                     N_h[i].append(j)
+        
+    #     return N_h 
         
     
     

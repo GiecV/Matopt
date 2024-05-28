@@ -88,12 +88,6 @@ class Master:
         
         #12. CUTS     
         for h in C_max_h:
-            print('C_max_h ', C_max_h)
-            print('self.M ', self.M)
-            print('C_max_h ', C_max_h)
-            print('Y ', Y)
-            print('theta ', theta)
-            print('N_h ', N_h)
             for i in self.M:
                 master.addConstr(C_max >= C_max_h[h][i] - 
                                  gb.quicksum( (1 - Y[i,j]) * 
