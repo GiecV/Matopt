@@ -18,7 +18,7 @@ class Master:
         master = gb.Model(env=env)
         master.Params.OutputFlag = 0 # Avoid verbose output
         
-        if iteration == 1:
+        if iteration == 1: # Set gap <2% or time limit 90% of the total time
             master.Params.MIPGap = 0.02
             master.Params.TimeLimit = 0.9 * self.t_max
 
@@ -34,7 +34,7 @@ class Master:
                     for k in self.N0
                     if j == k}
 
-        X = {**X_continuous, **X_binary}
+        X = {**X_continuous, **X_binary} # Create the X variables
 
         Y = master.addVars( # Add assignment variables
             [(i,k)

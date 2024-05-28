@@ -2,7 +2,7 @@ import gurobipy as gb
 
 class Solver:
 
-    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000, max_time = 600):
+    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000, max_time = 1800):
         
         self.execution_times = execution_times 
         self.setup_times = setup_times
@@ -126,36 +126,26 @@ class Solver:
         
         self.status = model.Status
 
-        # Save the results if the problem is feasible, otherwise return None
-        if model.Status == gb.GRB.OPTIMAL:
-            # decision_variables = [[[X[i, j, k].X for k in self.N0] for j in self.N0] for i in self.M]
-            # completion_times = [C[j].X for j in self.N0]
-            # maximum_makespan = C_max.X
-            # assignments = [[Y[i,k].X for k in self.N0] for i in self.M]
-
-            # return decision_variables,completion_times,maximum_makespan,assignments
+        # Save the results
         
-            decision_variables = {}
-            completion_times = {}
-            maximum_makespan = {}
-            assignments = {}
+        decision_variables = {}
+        completion_times = {}
+        maximum_makespan = {}
+        assignments = {}
             
-            for i in self.M:
-                for j in self.N0:
-                    for k in self.N0:
-                        decision_variables[i,j,k] = X[i,j,k].X
+        for i in self.M:
             for j in self.N0:
-                completion_times[j] = C[j].X
-            for i in self.M:
                 for k in self.N0:
-                    assignments[i,k] = Y[i,k].X
+                    decision_variables[i,j,k] = X[i,j,k].X
+        for j in self.N0:
+            completion_times[j] = C[j].X
+        for i in self.M:
+            for k in self.N0:
+                assignments[i,k] = Y[i,k].X
             
-            maximum_makespan = C_max.X
-            # print('Maximum makespan: ', maximum_makespan)        
+        maximum_makespan = C_max.X
 
-            return decision_variables,completion_times,maximum_makespan,assignments
-
-        else: return None
+        return decision_variables,completion_times,maximum_makespan,assignments
 
 
         

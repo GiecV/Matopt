@@ -100,9 +100,9 @@ class Sequence:
         for j in self.N:
             jobs_before[j] = U[j].X
         
-        return decision_variables, self.compute_makespan(decision_variables, jobs_before)
+        return decision_variables, self.compute_makespan(decision_variables)
 
-    def compute_makespan(self, decision_variables, jobs_before):
+    def compute_makespan(self, decision_variables): # Compute the makespan of the sequence problem
         makespans = {}
     
         for i in self.M:
