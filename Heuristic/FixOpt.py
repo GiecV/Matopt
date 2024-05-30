@@ -40,21 +40,49 @@ class FixOpt:
 
     def compute_makespan(self): # Find the maximum makespan and the machine that has it
         
-        machine_times = {}
-        
-        for (i,j,k), v in self.solution.items(): # For every machine, every job in its queue sum the execution and setup times
-            if i not in machine_times:
-                machine_times[i] = 0
-            if v == 1:
-                if j != 0:
-                    machine_times[i] += self.execution_times[i,j]
-                if j != 0 and k != 0:
-                    machine_times[i] += self.setup_times[i,j,k]
-                    
-        argmax = max(machine_times, key=machine_times.get) # Find the machine with the maximum makespan
-        makespan = machine_times[argmax] # Find the maximum makespan
-        
+        C_max_h = {}
+
+        self.solution = {key: round(value) for key, value in self.solution.items()}
+        for i in self.M:  # Compute the makespan for each machine
+            makespan = 0
+            execution_time = 0
+            setup_time = 0
+            for j in self.N0:
+                for k in self.N0:
+                    if self.solution[i,j,k] == 1:
+                        if j == 0:
+                            execution_time = 0
+                            setup_time = 0
+                        elif k == 0:
+                            execution_time = self.execution_times[i, j]
+                            setup_time = 0
+                        else:
+                            execution_time = self.execution_times[i, j]
+                            setup_time = self.setup_times[i, j, k]
+
+                        time = (execution_time + setup_time)
+                        makespan += time
+            C_max_h[i] = makespan
+            argmax = max(C_max_h, key=C_max_h.get) # Find the machine with the maximum makespan
+            makespan = C_max_h[argmax] # Find the maximum makespan
+            
         return makespan, argmax
+        
+        # machine_times = {}
+        
+        # for (i,j,k), v in self.solution.items(): # For every machine, every job in its queue sum the execution and setup times
+        #     if i not in machine_times:
+        #         machine_times[i] = 0
+        #     if v == 1:
+        #         if j != 0:
+        #             machine_times[i] += self.execution_times[i,j]
+        #         if j != 0 and k != 0:
+        #             machine_times[i] += self.setup_times[i,j,k]
+                    
+        # argmax = max(machine_times, key=machine_times.get) # Find the machine with the maximum makespan
+        # makespan = machine_times[argmax] # Find the maximum makespan
+        
+        # return makespan, argmax
     
     def reduce_matrices(self, N_prime, M_prime): # Reduce the execution and setup times matrices to the subproblem size
         

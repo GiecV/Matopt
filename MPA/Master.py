@@ -3,24 +3,24 @@ from gurobipy import GRB
 
 class Master:
     
-    def __init__(self, execution_times, setup_times, M, N, N0, t_max = 60):
+    def __init__(self, execution_times, setup_times, M, N, N0):
         
         self.execution_times = execution_times
         self.setup_times = setup_times
         self.M = M
         self.N = N
         self.N0 = N0
-        self.t_max = t_max
 
-    def solve(self, C_max_h, theta, N_h, options = {}, iteration = 0):
+    def solve(self, C_max_h, theta, N_h, options = {}, iteration = 0, t_max = 60):
         
         env = gb.Env(params=options)
         master = gb.Model(env=env)
         master.Params.OutputFlag = 0 # Avoid verbose output
+        master.Params.TimeLimit = t_max
         
         if iteration == 1: # Set gap <2% or time limit 90% of the total time
             master.Params.MIPGap = 0.02
-            master.Params.TimeLimit = 0.9 * self.t_max
+            master.Params.TimeLimit = 0.9 * t_max
 
         X_continuous = {(i,j,k): master.addVar(vtype=gb.GRB.CONTINUOUS, lb=0, ub=1)
                         for i in self.M
@@ -89,10 +89,10 @@ class Master:
         #12. CUTS     
         for h in C_max_h:
             for i in self.M:
-                master.addConstr(C_max >= C_max_h[h][i] - 
-                                 gb.quicksum( (1 - Y[i,j]) * 
-                                             theta[h][i,j] 
-                                             for j in N_h[h][i] ))
+                master.addConstr(
+                    C_max >= C_max_h[h][i] - gb.quicksum( (1 - Y[i,j]) * theta[h][i,j] 
+                                                        for j in N_h[h][i] )
+                )
 
         # Solve the problem
         master.optimize()

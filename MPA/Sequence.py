@@ -3,7 +3,7 @@ from MPA.Master import Master
 
 class Sequence:
 
-    def __init__(self, fixed_assignments: dict, M, N, N0, setup_times, execution_times, makespan_upper_bound = 10_000, time_limit = 60):
+    def __init__(self, fixed_assignments: dict, M, N, N0, setup_times, execution_times, makespan_upper_bound = 1_000_000, time_limit = 60):
 
         self.fixed_assignments = fixed_assignments
         self.M = M
@@ -74,11 +74,11 @@ class Sequence:
             )
         
         #22. Sub-tour elimination
-        for i in self.M:
+        for j in self.N:
             sequence.addConstr(
                 U[j] + (self.U - 1) * gb.quicksum( X[i,0,j] for i in self.M) <= self.U - 1
             )
-
+        
         #24. Set U domain
         for j in self.N:
             sequence.addConstr(
@@ -92,6 +92,10 @@ class Sequence:
         decision_variables = {}
         jobs_before = {}
         
+        if sequence.Status == gb.GRB.INF_OR_UNBD or sequence.Status == gb.GRB.INFEASIBLE or sequence.Status == gb.GRB.UNBOUNDED:
+            print(f'The problem is infeasible or unbounded: Code {sequence.Status}')
+            return None, None
+        
         for i in self.M:
             for j in self.N0:
                 for k in self.N0:
@@ -103,18 +107,30 @@ class Sequence:
         return decision_variables, self.compute_makespan(decision_variables)
 
     def compute_makespan(self, decision_variables): # Compute the makespan of the sequence problem
-        makespans = {}
-    
-        for i in self.M:
-            makespan_i = 0
-            for j in self.N:
+        
+        C_max_h = {}
+        decision_variables = {key: round(value) for key, value in decision_variables.items()}
+        for i in self.M:  # Compute the makespan for each machine
+            makespan = 0
+            execution_time = 0
+            setup_time = 0
+            for j in self.N0:
                 for k in self.N0:
                     if decision_variables[i,j,k] == 1:
-                        makespan_i += self.execution_times[i,j]
-                        if k != 0:
-                            makespan_i += self.setup_times[i,j,k]
-            makespans[i] = makespan_i
+                        if j == 0:
+                            execution_time = 0
+                            setup_time = 0
+                        elif k == 0:
+                            execution_time = self.execution_times[i, j]
+                            setup_time = 0
+                        else:
+                            execution_time = self.execution_times[i, j]
+                            setup_time = self.setup_times[i, j, k]
 
-        max_makespan = max(makespans.values())
-    
-        return max_makespan
+                        time = (execution_time + setup_time)
+                        makespan += time
+            C_max_h[i] = makespan
+            argmax = max(C_max_h, key=C_max_h.get) # Find the machine with the maximum makespan
+            makespan = C_max_h[argmax] # Find the maximum makespan
+            
+        return makespan
