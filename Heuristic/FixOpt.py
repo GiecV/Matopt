@@ -167,9 +167,6 @@ class FixOpt:
             
         machines = list(p.keys())
         probabilities = list(p.values())
-
-        print(p)
-        
         selected_machine = r.choices(machines, weights=probabilities, k=1)[0]
     
         return selected_machine
