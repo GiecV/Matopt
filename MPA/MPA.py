@@ -29,6 +29,7 @@ class MPA:
         
         best_makespan = 10_000 # Initialize best makespan
         iteration = 0
+        gap = 0
         t = self.t_max
         start_time = time.time() # Start time of the algorithm
         master_solution = {} 
@@ -68,6 +69,7 @@ class MPA:
                     if sequence_makespan < best_makespan: # Update the best solution    
                         best_makespan = sequence_makespan
                         best_solution = sequence_solution
+                        self.gap = sequence.gap
                 
                 if master_status == gb.GRB.OPTIMAL: # Compute parameters for adding cuts to the master problem
                     C_max_h[iteration] = self.compute_C_max_h(master_solution)

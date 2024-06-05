@@ -88,6 +88,8 @@ class Sequence:
         # Solve the problem
         sequence.optimize()
 
+        self.gap = sequence.MIPGap
+
         # Save the results if the problem is feasible, otherwise return None
         decision_variables = {}
         jobs_before = {}

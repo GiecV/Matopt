@@ -2,7 +2,7 @@ import gurobipy as gb
 
 class Solver:
 
-    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000, max_time = 1800):
+    def __init__(self, execution_times: dict, setup_times: dict, makespan_upper_bound = 10_000, max_time = 7200):
         
         self.execution_times = execution_times 
         self.setup_times = setup_times
@@ -24,6 +24,9 @@ class Solver:
         for i in self.M: # Setting the setup time for dummy jobs to 0
             for k in self.N:
                 self.setup_times[i,0,k] = 0
+
+    def get_gap(self):
+        return self.gap
 
     def solve(self, options = {}):
 
@@ -125,6 +128,7 @@ class Solver:
         model.optimize()
         
         self.status = model.Status
+        self.gap = model.MIPGap
 
         # Save the results
         
