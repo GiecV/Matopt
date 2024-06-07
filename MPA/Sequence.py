@@ -3,7 +3,7 @@ from MPA.Master import Master
 
 class Sequence:
 
-    def __init__(self, fixed_assignments: dict, M, N, N0, setup_times, execution_times, makespan_upper_bound = 1_000_000, time_limit = 60):
+    def __init__(self, fixed_assignments: dict, M, N, N0, setup_times, execution_times, makespan_upper_bound = 10_000, time_limit = 60):
 
         self.fixed_assignments = fixed_assignments
         self.M = M
@@ -11,10 +11,10 @@ class Sequence:
         self.N0 = N0
         self.setup_times = setup_times
         self.execution_times = execution_times
-        self.U = makespan_upper_bound
+        self.big_U = makespan_upper_bound
         self.t_max = time_limit
 
-    def solve(self, options = {}): #fix solve method it does not work
+    def solve(self, options = {}):
 
         env = gb.Env(params=options)
         sequence = gb.Model(env=env)
@@ -64,7 +64,7 @@ class Sequence:
             for k in self.N:
                 if j != k:
                     sequence.addConstr(
-                        U[j] - U[k] + self.U * gb.quicksum( X[i,j,k] for i in self.M) <= self.U - 1
+                        U[j] - U[k] + self.big_U * gb.quicksum( X[i,j,k] for i in self.M) <= self.big_U - 1
                     ) 
         
         #21. Sub-tour elimination
@@ -74,44 +74,41 @@ class Sequence:
             )
         
         #22. Sub-tour elimination
-        for j in self.N:
+        for i in self.M:
             sequence.addConstr(
-                U[j] + (self.U - 1) * gb.quicksum( X[i,0,j] for i in self.M) <= self.U - 1
+                U[j] + (self.big_U - 1) * gb.quicksum( X[i,0,j] for i in self.M) <= self.big_U - 1
             )
         
         #24. Set U domain
         for j in self.N:
             sequence.addConstr(
-                        U[j] >= 0
+                U[j] >= 0
             )
 
         # Solve the problem
         sequence.optimize()
-
-        self.gap = sequence.MIPGap
 
         # Save the results if the problem is feasible, otherwise return None
         decision_variables = {}
         jobs_before = {}
         
         if sequence.Status == gb.GRB.INF_OR_UNBD or sequence.Status == gb.GRB.INFEASIBLE or sequence.Status == gb.GRB.UNBOUNDED:
-            print(f'The problem is infeasible or unbounded: Code {sequence.Status}')
+            raise ValueError(f'The problem is infeasible or unbounded: Code {sequence.Status}')
             return None, None
         
         for i in self.M:
             for j in self.N0:
                 for k in self.N0:
-                    decision_variables[i,j,k] = X[i,j,k].X
+                    decision_variables[i,j,k] = round(X[i,j,k].X)
                     
         for j in self.N:
-            jobs_before[j] = U[j].X
+            jobs_before[j] = round(U[j].X)
         
         return decision_variables, self.compute_makespan(decision_variables)
 
     def compute_makespan(self, decision_variables): # Compute the makespan of the sequence problem
         
         C_max_h = {}
-        decision_variables = {key: round(value) for key, value in decision_variables.items()}
         for i in self.M:  # Compute the makespan for each machine
             makespan = 0
             execution_time = 0

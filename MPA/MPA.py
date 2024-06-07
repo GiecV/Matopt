@@ -3,6 +3,7 @@ from MPA.Sequence import Sequence
 import time
 import gurobipy as gb
 from gurobipy import GRB
+import numpy as np
 
 class MPA:
     def __init__(self, execution_times:dict, setup_times:dict, t_max = 600):
@@ -20,16 +21,11 @@ class MPA:
         self.N = range(1,max_key[1]+1)
         self.N0 = range(max_key[1]+1) # N0 has to start from 0
 
-        self.thetas = {}
-        self.C_max_h = {}
-        self.N_h = {}
-
 
     def solve(self, options={}):
         
-        best_makespan = 10_000 # Initialize best makespan
+        best_makespan = np.Inf # Initialize best makespan
         iteration = 0
-        gap = 0
         t = self.t_max
         start_time = time.time() # Start time of the algorithm
         master_solution = {} 
@@ -47,7 +43,6 @@ class MPA:
                         M=self.M, N=self.N, N0=self.N0) # Initialize master problem
 
         while t > 0: # Until the time limit is reached
-            print(f'Remaining time: {t}s')
             iteration += 1 # Increase iteration
             
             if iteration == 1: # In the first iteration, the problem has to be solved with gap <2% or time limit 90% of the total time
@@ -57,24 +52,22 @@ class MPA:
             else: #Else solve normally
                 master_solution, master_assignments, master_makespan, master_status = master.solve(options=options, C_max_h=C_max_h,
                                                                                theta=thetas, N_h=N_h, t_max=t)
-            for key, value in master_assignments.items():
-                master_assignments[key] = round(value)
+
             if master_makespan < best_makespan:
                 # Solve the sequence problem
                 sequence = Sequence(fixed_assignments = master_assignments, M = self.M, N = self.N, N0  = self.N0, 
-                                    setup_times=self.setup_times, execution_times= self. execution_times, time_limit = t)
+                                    setup_times=self.setup_times, execution_times= self.execution_times, time_limit = t)
                 sequence_solution, sequence_makespan = sequence.solve(options=options)
-                
+
                 if sequence_solution is not None and sequence_makespan is not None:
                     if sequence_makespan < best_makespan: # Update the best solution    
                         best_makespan = sequence_makespan
                         best_solution = sequence_solution
-                        self.gap = sequence.gap
                 
                 if master_status == gb.GRB.OPTIMAL: # Compute parameters for adding cuts to the master problem
-                    C_max_h[iteration] = self.compute_C_max_h(master_solution)
-                    thetas[iteration] = self.compute_thetas(master_solution)
-                    N_h[iteration] = self.compute_N_h(master_solution)
+                    C_max_h[iteration] = self.compute_C_max_h(best_solution)
+                    thetas[iteration] = self.compute_thetas(master_assignments)
+                    N_h[iteration] = self.compute_N_h(master_assignments)
                     
             else: # If no improvement is found, but an optimal solution has been found, return it
                 if master_status == gb.GRB.OPTIMAL:
@@ -84,7 +77,8 @@ class MPA:
             
         return best_solution, best_makespan
     
-    def compute_C_max_h(self, master_solution):  # Compute C^{h,i}_max
+    def compute_C_max_h(self, solution):  # Compute C^{h,i}_max
+        
         C_max_h = {}
         for i in self.M:  # Compute the makespan for each machine
             makespan = 0
@@ -92,7 +86,7 @@ class MPA:
             setup_time = 0
             for j in self.N0:
                 for k in self.N0:
-                    if master_solution[i,j,k] == 1:
+                    if solution[i,j,k] == 1:
                         if j == 0:
                             execution_time = 0
                             setup_time = 0
@@ -106,24 +100,25 @@ class MPA:
                         time = (execution_time + setup_time)
                         makespan += time
             C_max_h[i] = makespan
+                
+
         return C_max_h
 
-    def compute_thetas(self, master_solution): # Compute theta^h_{i,j}
+    def compute_thetas(self, master_assignments): # Compute theta^h_{i,j}
         thetas = {}
         for i in self.M:
             for j in self.N0:
                 if j != 0:
-                    assigned_jobs = [k for k in self.N0 if master_solution[i, j, k] == 1 and k != 0] # Find the assigned jobs
+                    assigned_jobs = [j for j in self.N if master_assignments[i,j] == 1 and j != 0] # Find the assigned jobs
                     # Find the maximum setup time among the assigned jobs
-                    max_setup_time = max(self.setup_times[i, k, j] for k in assigned_jobs) if assigned_jobs else 0
+                    max_setup_time = max(self.setup_times[i, j, k] for k in assigned_jobs) if assigned_jobs else 0
                     thetas[i, j] = self.execution_times[i, j] + max_setup_time # Sum the processing time to the maximum setup time
         return thetas
 
-    def compute_N_h(self, master_solution): # Compute N^h_i
-        N_h = {i:[] for i in self.M}
+    def compute_N_h(self, master_assignments):  # Compute N^h_i
+        N_h = {i: [] for i in self.M}
         for i in self.M:
             for j in self.N0:
-                for k in self.N0:
-                    if master_solution[i, j, k] == 1 and j != 0:
-                        N_h[i].append(j)
-        return N_h # Return the set of jobs for e! ach machine
+                if master_assignments[i, j] == 1 and j != 0:
+                    N_h[i].append(j)
+        return N_h  # Return the set of jobs for each machine

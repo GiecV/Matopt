@@ -105,12 +105,12 @@ class Master:
         for i in self.M:
             for j in self.N0:
                 for k in self.N0:
-                    decision_variables[i,j,k] = X[i,j,k].X
+                    decision_variables[i,j,k] = round(X[i,j,k].X)
         for j in self.N0:
             completion_times[j] = C[j].X
         for i in self.M:
             for k in self.N0:
-                assignments[i,k] = Y[i,k].X
+                assignments[i,k] = round(Y[i,k].X)
             
         maximum_makespan = C_max.X    
           

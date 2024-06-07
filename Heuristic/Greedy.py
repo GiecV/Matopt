@@ -1,4 +1,5 @@
 import random as r
+import numpy as np
 
 class Greedy:
 
@@ -55,16 +56,12 @@ class Greedy:
         return shuffled_list
     
     def find_smallest_completion_time(self, j): # Find the machine with the smallest completion time
-        
         makespan_for_machine = {}
 
         for key in self.S:
             sum_execution_times = 0
             sum_setup_times = 0
-            min_makespan = 10_000
-            best_machines = []
-            best_machine = None
-            
+
             for job in self.S[key]: # Calculate the makespan for each machine
                 sum_execution_times += self.execution_times[key, job]
                 for i in range(len(self.S[key])):
@@ -73,52 +70,47 @@ class Greedy:
 
             makespan_for_machine[key] = sum_execution_times + sum_setup_times # Sum the execution and setup times
 
-            for key in makespan_for_machine: #Find the minimum makespan machine
-                if makespan_for_machine[key] == min_makespan:
-                    best_machines.append(key)
-                elif makespan_for_machine[key] < min_makespan:
-                    min_makespan = makespan_for_machine[key]
-                    best_machines = []
-                    best_machines.append(key)
+        # Find the machine(s) with the smallest makespan
+        min_makespan = min(makespan_for_machine.values())
+        best_machines = [machine for machine, makespan in makespan_for_machine.items() if makespan == min_makespan]
 
-            if len(best_machines) > 1: #Resolve draw if necessary
-                best_execution_time = 10_000
-                for key in best_machines:
-                    if self.execution_times[key, j] < best_execution_time:
-                        best_execution_time = self.execution_times[key, j]
-                        best_machine = key
+        # If there's a tie, choose the machine with the smallest processing time for job j
+        if len(best_machines) > 1:
+            best_machine = min(best_machines, key=lambda machine: self.execution_times[machine, j])
+        elif best_machines:  # Check if best_machines is not empty
+            best_machine = best_machines[0]
+        else:  # If best_machines is empty, return a default machine
+            best_machine = self.M[0]
 
-            else:
-                best_machine = best_machines[0]
         return best_machine
 
     def find_best_position(self, machine, job): # Find the best position of the queue
-        
-        best_time = 10_000
+        best_time = np.Inf
         best_position = None
         job_queue = self.S[machine].copy()
 
         if len(job_queue) == 0: # If the queue is empty, add it at the beginning
-            best_position = 0
-            return best_position
+            return 0
 
-        for i in range(len(job_queue)):
-            job_queue.insert(i, job) # Try to insert the job in each position of the queue
+        for pos in range(len(job_queue) + 1):
+            job_queue.insert(pos, job) # Try to insert the job in each position of the queue
             sum_execution_times = 0
             sum_setup_times = 0
 
-            for job in job_queue:
-                sum_execution_times += self.execution_times[machine, job]
-                for i in range(len(job_queue)):
-                    if i != 0:
-                        sum_setup_times += self.setup_times[machine, job_queue[i], job_queue[i-1]]
+            for job_index in range(len(job_queue)):
+                sum_execution_times += self.execution_times[machine, job_queue[job_index]]
+                if job_index != 0:
+                    sum_setup_times += self.setup_times[machine, job_queue[job_index], job_queue[job_index-1]]
 
             total_time = sum_execution_times + sum_setup_times # Compute the total time 
             if total_time < best_time: # If it is an improvement, keep it
                 best_time = total_time
-                best_position = i
-        
-        return best_position
+                best_position = pos
+
+            job_queue.remove(job) # Remove the job from the current position before trying the next one
+
+        return best_position if best_position is not None else 0
+    
                 
             
 

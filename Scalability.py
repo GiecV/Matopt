@@ -38,9 +38,9 @@ def generate_instance(N_cardinality, M_cardinality,
     
     return P,S
 
-N_and_M = [(20, 2), (25, 5), (30, 7), (35, 9), (40, 10)]
-maximum_times = [15, 40, 120, 600, 4000]
-maximum_times_heuristic = [10, 30, 90, 300, 2500]
+N_and_M = [(20, 2), (25, 5), (30, 7), (35, 9)]
+maximum_times = [4800, 4800, 4800, 4800]
+maximum_times_heuristic = [100, 100, 100, 100]
 results_IP = {}
 results_MP = {}
 results_FO = {}
@@ -63,8 +63,8 @@ for i, (N_cardinality, M_cardinality) in enumerate(N_and_M):
     t = time.time()
 
     s = MPA(execution_times = P_dict, setup_times = S_dict, t_max=maximum_times[i]) # Solve using the MP solver
-    decision_variables,maximum_makespan = s.solve(options=options)
-    results_MP[(N_cardinality, M_cardinality)] = (round(maximum_makespan), time.time() - t, s.gap)
+    decision_variables,maximum_makespan_MPA = s.solve(options=options)
+    results_MP[(N_cardinality, M_cardinality)] = (round(maximum_makespan_MPA), time.time() - t, ((maximum_makespan - maximum_makespan_MPA)/maximum_makespan)*100)
 
     t = time.time()
 

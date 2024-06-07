@@ -54,9 +54,9 @@ P_dict, S_dict = generate_instance(N_cardinality=N_cardinality,M_cardinality=M_c
 
 t = time.time()
 
-# s = Solver(execution_times = P_dict, setup_times = S_dict) # Find the exact solution 
-# decision_variables,completion_times,maximum_makespan,assignments = s.solve(options=options)
-# results_IP = (round(maximum_makespan), time.time() - t, s.gap)
+s = Solver(execution_times = P_dict, setup_times = S_dict) # Find the exact solution 
+decision_variables,completion_times,maximum_makespan,assignments = s.solve(options=options)
+results_IP = (round(maximum_makespan), time.time() - t, s.gap)
 
 for t_max in maximum_times_heuristic: # Use the heuristic for every maximum time in the list
     t = time.time()
@@ -70,8 +70,8 @@ for t_max in maximum_times_heuristic: # Use the heuristic for every maximum time
 
     clear_output(wait=True)
 
-# print('Integer Programming:')
-# print(f'Makespan: {results_IP[0]} with gap {results_IP[2]}, Time: {results_IP[1]}s')
+print('Integer Programming:')
+print(f'Makespan: {results_IP[0]} with gap {results_IP[2]}, Time: {results_IP[1]}s')
 
 print('Fix-and-Optimize Heuristic:')
 for result, v in results_FO.items():

@@ -25,9 +25,6 @@ class Solver:
             for k in self.N:
                 self.setup_times[i,0,k] = 0
 
-    def get_gap(self):
-        return self.gap
-
     def solve(self, options = {}):
 
         env = gb.Env(params=options)
