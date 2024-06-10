@@ -9,7 +9,8 @@ import json
 class FixOpt:
 
     def __init__(self, initial_solution, setup_times, N, M ,N0, execution_times, t_max=300, subproblem_size= 106,
-                 subproblem_runtime_limit = 1, subproblem_size_adjust_rate = 0.1, makespan_upper_bound = 10_000):
+                 subproblem_runtime_limit = 1, subproblem_size_adjust_rate = 0.1, makespan_upper_bound = 10_000,
+                 WLS_license = False):
         
         self.solution = initial_solution
         self.setup_times = setup_times
@@ -24,6 +25,7 @@ class FixOpt:
         self.M = M
         self.M_len = len(M)
         self.N0 = N0
+        self.WLS = WLS_license
 
     def compute_single_makespan(self, machine): # Compute the makespan of a single machine
         
@@ -117,9 +119,12 @@ class FixOpt:
 
         s = Solver(reduced_execution, reduced_setup, jobs_fixed_to_machine=converted_fixed_jobs, time_limit = self.t_it)
 
-        with open('credentials.txt') as f: 
-            data = f.read() 
-        options = json.loads(data)
+        if self.WLS == True:
+            with open('credentials.txt') as f: 
+                data = f.read() 
+            options = json.loads(data)
+        else:
+            options = {}
 
         local_solution, _, local_makespan, _ = s.solve(options=options) # Solve the subproblem
 
@@ -148,7 +153,7 @@ class FixOpt:
         
         for machine in set:
             p[machine] = 1 - ((makespan - self.compute_single_makespan(machine=machine))/makespan)
-            
+
         machines = list(p.keys())
         probabilities = list(p.values())
         selected_machine = r.choices(machines, weights=probabilities, k=1)[0]
