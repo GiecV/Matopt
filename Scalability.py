@@ -11,15 +11,19 @@ import time
 # Script used for the scalability analysis of the algorithms #
 ##############################################################
 
-r.seed(10) # Seed for reproducibility
+# r.seed(10) # Seed for reproducibility
   
 with open('credentials.txt') as f: # Load the credentials for Gurobi
     data = f.read() 
 options = json.loads(data)
 
+def convert_keys_to_string(dictionary):
+    """Converts dictionary keys to strings."""
+    return {str(key): value for key, value in dictionary.items()}
+
 def generate_instance(N_cardinality, M_cardinality,
-                      min_execution_time = 1,max_execution_time = 10,
-                      min_setup_time = 1,max_setup_time = 3):
+                      min_execution_time = 1, max_execution_time = 100,
+                      min_setup_time = 1, max_setup_time = 10):
     
     P = {}
     S = {}
@@ -38,51 +42,63 @@ def generate_instance(N_cardinality, M_cardinality,
     
     return P,S
 
-N_and_M = [(20, 2), (25, 5), (30, 7), (35, 9)]
-maximum_times = [4800, 4800, 4800, 4800]
-maximum_times_heuristic = [100, 100, 100, 100]
+M_list = [2,3,5,10]
+N_list = [10,20,30,40,50]
+runtime_limit = 1800 # seconds
+runs_for_each_case = 10
+
 results_IP = {}
 results_MP = {}
 results_FO = {}
 
-for i, (N_cardinality, M_cardinality) in enumerate(N_and_M):
-    t = time.time()
-    P_dict, S_dict = generate_instance(N_cardinality = N_cardinality, M_cardinality = M_cardinality,
-                                       min_execution_time = 1, max_execution_time = 100,
-                                       min_setup_time = 1, max_setup_time = 100) # Generate the instance
+for M_cardinality in M_list:
+    for N_cardinality in N_list:
 
-    N = range(1, N_cardinality+1) # Create the sets N, M, N0
-    M = range(1, M_cardinality+1)
-    N0 = [i for i in N]
-    N0.insert(0,0)
+        N = range(1, N_cardinality+1) # Create the sets N, M, N0
+        M = range(1, M_cardinality+1)
+        N0 = [i for i in N]
+        N0.insert(0,0)
 
-    s = Solver(execution_times = P_dict, setup_times = S_dict) # Solve using the IP solver
-    decision_variables,completion_times,maximum_makespan,assignments = s.solve(options=options)
-    results_IP[(N_cardinality, M_cardinality)] = (round(maximum_makespan), time.time() - t, s.gap)
+        results_IP[(N_cardinality, M_cardinality)] = {}
+        results_MP[(N_cardinality, M_cardinality)] = {}
+        results_FO[(N_cardinality, M_cardinality)] = {}
 
-    t = time.time()
+        for iteration in range(runs_for_each_case):
 
-    s = MPA(execution_times = P_dict, setup_times = S_dict, t_max=maximum_times[i]) # Solve using the MP solver
-    decision_variables,maximum_makespan_MPA = s.solve(options=options)
-    results_MP[(N_cardinality, M_cardinality)] = (round(maximum_makespan_MPA), time.time() - t, ((maximum_makespan - maximum_makespan_MPA)/maximum_makespan)*100)
+            print(f'Running iteration {iteration} with N={N_cardinality}, M={M_cardinality}', end='\r')
 
-    t = time.time()
+            t = time.time()
+            P_dict, S_dict = generate_instance(N_cardinality = N_cardinality, M_cardinality = M_cardinality) # Generate the instance
 
-    greedy = Greedy(execution_times=P_dict, setup_times=S_dict) # Find the initial solution 
-    solution = greedy.solve()
-    m = FixOpt(initial_solution=solution, setup_times=S_dict,execution_times=P_dict, N=N, M=M, N0=N0, # Solve using the FO heuristic
-           subproblem_size_adjust_rate=0.1, t_max = maximum_times_heuristic[i], subproblem_runtime_limit=10, subproblem_size=5)
-    solution, makespan = m.solve()
-    results_FO[(N_cardinality, M_cardinality)] = (round(makespan), time.time() - t, ((maximum_makespan - makespan)/maximum_makespan)*100)
+            s = Solver(execution_times = P_dict, setup_times = S_dict, max_time = runtime_limit) # Solve using the IP solver
+            decision_variables,completion_times,maximum_makespan,assignments = s.solve(options=options)
+            results_IP[(N_cardinality, M_cardinality)][iteration] = {'makespan': round(maximum_makespan), 'time': time.time() - t, 'gap': s.gap}
 
-    clear_output(wait=True)
+            t = time.time()
+            s = MPA(execution_times = P_dict, setup_times = S_dict, t_max = runtime_limit) # Solve using the MP solver
+            decision_variables,maximum_makespan_MPA = s.solve(options=options)
+            results_MP[(N_cardinality, M_cardinality)][iteration] = {'makespan': round(maximum_makespan_MPA), 'time': time.time() - t, 'gap': ((maximum_makespan - maximum_makespan_MPA)/maximum_makespan)*100}
 
-print('Integer Programming:')
-for result, v in results_IP.items():
-    print(f'N: {result[0]}, M: {result[1]}, Makespan: {v[0]} with gap {v[2]}, Time: {v[1]}s')
-print('Mathematical Programming:')
-for result, v in results_MP.items():
-    print(f'N: {result[0]}, M: {result[1]}, Makespan: {v[0]} with gap {v[2]}, Time: {v[1]}s')
-print('Fix-and-Optimize Heuristic:')
-for result, v in results_FO.items():
-    print(f'N: {result[0]}, M: {result[1]}, Makespan: {v[0]} with gap {v[2]}, Time: {v[1]}s')
+            runtime_for_heuristic = min(results_IP[(N_cardinality, M_cardinality)][iteration]['time'], results_MP[(N_cardinality, M_cardinality)][iteration]['time'])
+            #! min
+            t = time.time()
+            greedy = Greedy(execution_times=P_dict, setup_times=S_dict) # Find the initial solution
+            solution = greedy.solve()
+            m = FixOpt(initial_solution=solution, setup_times=S_dict,execution_times=P_dict, N=N, M=M, N0=N0, # Solve using the FO heuristic
+                   subproblem_size_adjust_rate=0.5, t_max = runtime_for_heuristic, subproblem_runtime_limit=30, subproblem_size=10, WLS_license=True)
+            solution, makespan = m.solve()
+            print(f'FO: {makespan} vs IP: {maximum_makespan}')
+            results_FO[(N_cardinality, M_cardinality)][iteration] = {'makespan': round(makespan), 'time': time.time() - t, 'gap': ((maximum_makespan - makespan)/maximum_makespan)*100}
+
+results_IP_str_keys = convert_keys_to_string(results_IP)
+results_MP_str_keys = convert_keys_to_string(results_MP)
+results_FO_str_keys = convert_keys_to_string(results_FO)
+
+with open('results/IP_results.txt', 'w') as file:
+    file.write(str(results_IP))
+with open('results/MP_results.txt', 'w') as file:
+    file.write(str(results_MP))
+with open('results/FO_results.txt', 'w') as file:
+    file.write(str(results_FO))
+
+print("Results saved to results.txt")

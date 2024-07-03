@@ -2,20 +2,19 @@ import gurobipy as gb
 from gurobipy import GRB
 import numpy as np
 import random as r
-import time
 from Heuristic.Solver import Solver
 import json
 
 class FixOpt:
 
-    def __init__(self, initial_solution, setup_times, N, M ,N0, execution_times, t_max=300, subproblem_size= 106,
+    def __init__(self, initial_solution, setup_times, N, M ,N0, execution_times, iterations=100, subproblem_size= 106,
                  subproblem_runtime_limit = 1, subproblem_size_adjust_rate = 0.1, makespan_upper_bound = 10_000,
                  WLS_license = False):
         
         self.solution = initial_solution
         self.setup_times = setup_times
         self.execution_times = execution_times
-        self.t_max = t_max
+        self.iterations = iterations
         self.n = subproblem_size
         self.t_it = subproblem_runtime_limit
         self.alpha = subproblem_size_adjust_rate
@@ -177,11 +176,9 @@ class FixOpt:
 
         return new_solution
 
-    def solve(self):
+    def solve(self):	
         
-        start_time = time.time() # Start the timer	
-        
-        while time.time() - start_time < self.t_max: # Until the time limit is reached
+        for i in range(self.iterations): # Until the time limit is reached
             
             makespan, i_max = self.compute_makespan() # Compute the makespan and the machine with the maximum makespan
             
@@ -235,7 +232,6 @@ class FixOpt:
             else: # If not, decrease the subproblem size
                 self.n = max(1, np.floor( self.n * (1 - self.alpha) ))
 
-            self.time = time.time() - start_time # Update the time
             self.makespan = overall_makespan # Update the makespan
 
         return self.solution, self.makespan

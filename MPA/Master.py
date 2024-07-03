@@ -22,19 +22,24 @@ class Master:
             master.Params.MIPGap = 0.02
             master.Params.TimeLimit = 0.9 * t_max
 
-        X_continuous = {(i,j,k): master.addVar(vtype=gb.GRB.CONTINUOUS, lb=0, ub=1)
-                        for i in self.M
-                        for j in self.N0
-                        for k in self.N0
-                        if j != k}
+        # X_continuous = {(i,j,k): master.addVar(vtype=gb.GRB.CONTINUOUS, lb=0, ub=1)
+        #                 for i in self.M
+        #                 for j in self.N0
+        #                 for k in self.N0
+        #                 if j != k}
 
-        X_binary = {(i,j,k): master.addVar(vtype=gb.GRB.BINARY)
-                    for i in self.M
-                    for j in self.N0
-                    for k in self.N0
-                    if j == k}
+        # X_binary = {(i,j,k): master.addVar(vtype=gb.GRB.BINARY)
+        #             for i in self.M
+        #             for j in self.N0
+        #             for k in self.N0
+        #             if j == k}
 
-        X = {**X_continuous, **X_binary} # Create the X variables
+        # X = {**X_continuous, **X_binary} # Create the X variables
+
+        X = {(i,j,k): master.addVar(vtype=gb.GRB.CONTINUOUS, lb=0, ub=1)
+             for i in self.M
+             for j in self.N0
+             for k in self.N0}
 
         Y = master.addVars( # Add assignment variables
             [(i,k)
@@ -105,7 +110,7 @@ class Master:
         for i in self.M:
             for j in self.N0:
                 for k in self.N0:
-                    decision_variables[i,j,k] = round(X[i,j,k].X)
+                    decision_variables[i,j,k] = X[i,j,k].X
         for j in self.N0:
             completion_times[j] = C[j].X
         for i in self.M:
