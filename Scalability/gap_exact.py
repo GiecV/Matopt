@@ -9,11 +9,11 @@ MP_results = {}
 FO_results = {}
 
 # Open and read the file
-with open('results/IP_results.txt', 'r') as file:
+with open('Scalability/results/IP_results.txt', 'r') as file:
     IP_results = ast.literal_eval(file.read())
-with open('results/MP_results.txt', 'r') as file:
+with open('Scalability/results/MP_results.txt', 'r') as file:
     MP_results = ast.literal_eval(file.read())
-with open('results/FO_results.txt', 'r') as file:
+with open('Scalability/results/FO_results.txt', 'r') as file:
     FO_results = ast.literal_eval(file.read())
 
 IP_best_results = {}
@@ -104,7 +104,7 @@ mp_best_gaps = [MP_best_results[key] for key in sorted_keys]
 fo_best_gaps = [FO_best_results[key] for key in sorted_keys]
 
 # Step 3: Plotting
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(6, 6))
 
 # # Plot IP model
 # plt.plot(n_m_labels, ip_means, '-o', color='blue', label='IP')
@@ -125,7 +125,7 @@ plt.plot(n_m_labels, mp_means, '-o', color='green', label='MP Gap')
 plt.plot(n_m_labels, mp_best_gaps, 'o', color='lightgreen', label='MP Best Gap')
 plt.fill_between(n_m_labels, np.array(mp_means) - np.array(mp_std_devs), np.array(mp_means) + np.array(mp_std_devs), color='green', alpha=0.2)
 
-plt.ylim(-150,150)
+plt.ylim(-20,20)
 
 plt.xlabel('(N, M)')
 plt.ylabel('Average Gap (%)')

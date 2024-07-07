@@ -28,14 +28,17 @@ instances_mp_str = [str(instance) for instance in instances_mp]
 plt.figure(figsize=(10, 5))
 
 # Plot FO_results with error bars
-plt.errorbar(instances_fo_str, mean_times_fo, yerr=std_dev_fo, fmt='-o', label='FO Mean Time', capsize=5)
+# plt.errorbar(instances_fo_str, mean_times_fo, yerr=std_dev_fo, fmt='-o', label='FO Mean Time', capsize=5, color='red')
+plt.plot(instances_fo_str, mean_times_fo, '-o', label='FO Mean Time', color='red')
+plt.fill_between(instances_fo_str, np.array(mean_times_fo) - np.array(std_dev_fo),
+                 np.array(mean_times_fo) + np.array(std_dev_fo), color='red', alpha=0.2)
 
 # Plot MP_results
-plt.plot(instances_mp_str, times_mp, '-s', label='MP Time')
+plt.plot(instances_mp_str, times_mp, '-o', label='MP Time', color='green')
 
 # Adjustments
 plt.xticks(rotation=45)
-plt.xlabel('Instance')
+plt.xlabel('(N,M)')
 plt.ylabel('Time (s)')
 plt.title('Comparison of Mean Time with Standard Deviation (FO) and Time (MP)')
 plt.legend()

@@ -15,4 +15,6 @@ Run `run.ipynb` for trying all the methods proposed by the paper with a fixed in
 
 The project uses the WLS license for Gurobi, which means that you have to get your own license, put the three lines in a text file and rename it `credentials.txt`.
 
-`Scalability.py` and `FOTimes.py` are used to perform some tests on the model
+`Scalability.py` and `Scalability_heuristic.py` are used to perform some tests on the model
+
+`cuts_analysis.ipynb` contains information about the creation of the cuts in the Master problem

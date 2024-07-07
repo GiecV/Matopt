@@ -39,11 +39,8 @@ def generate_instance(N_cardinality, M_cardinality,
 def convert_keys_to_string(dictionary):
     return {str(key): value for key, value in dictionary.items()}
 
-# N_cardinalities = [40,50]
-# M_cardinalities = [2,5,10]
-
-N_cardinalities = [10,20]
-M_cardinalities = [2]
+N_cardinalities = [40,50]
+M_cardinalities = [2,5,10]
 
 heuristic_runs = 5
 

@@ -113,8 +113,17 @@ ip_std_devs = [plot_data[key]['IP']['std_dev'] for key in sorted_keys]
 mp_std_devs = [plot_data[key]['MP']['std_dev'] for key in sorted_keys]
 mp_best_times = [MP_best_results[key] for key in sorted_keys]
 
+n_m_labels = n_m_labels[:6]
+ip_means = ip_means[:6]
+mp_means = mp_means[:6]
+ip_best_times = ip_best_times[:6]
+ip_std_devs = ip_std_devs[:6]
+mp_best_times = mp_best_times[:6]
+mp_std_devs = mp_std_devs[:6]
+
+
 # Step 3: Plotting
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(5, 5))
 
 # Plot IP model
 plt.plot(n_m_labels, ip_means, '-o', color='blue', label='IP')
@@ -126,7 +135,7 @@ plt.plot(n_m_labels, mp_means, '-o', color='green', label='MP')
 plt.fill_between(n_m_labels, np.array(mp_means) - np.array(mp_std_devs), np.array(mp_means) + np.array(mp_std_devs), color='green', alpha=0.2)
 plt.plot(n_m_labels, mp_best_times, 'x', color='darkgreen', label='MP Best')
 
-plt.ylim(-100,600)
+plt.ylim(-0.5,1)
 
 plt.xlabel('(N, M)')
 plt.ylabel('Average Time (s)')
